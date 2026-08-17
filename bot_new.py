@@ -20,7 +20,9 @@ import uvicorn
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 TIMEOUT_MINUTES = 30
-LOG_CHANMEL_ID = 1538889265688223864
+
+# ID-ul canalului unde vrei logurile
+LOG_CHANNEL_ID = 123456789012345678
 
 # Prima abatere = timeout
 # A doua abatere = ban
@@ -57,6 +59,7 @@ def run_web_server():
 # =========================
 
 intents = discord.Intents.default()
+
 intents.message_content = True
 intents.members = True
 
@@ -71,6 +74,7 @@ bot = commands.Bot(
 # =========================
 
 RULES = {
+
     "free crypto": 4,
     "free bitcoin": 4,
     "free btc": 4,
@@ -148,6 +152,8 @@ def detect_scam(text):
                 f"{phrase} (+{points})"
             )
 
+    # Detect URLs
+
     urls = re.findall(
         r"(https?://[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(com|net|org|xyz|io|co)\b)",
         text
@@ -162,51 +168,96 @@ def detect_scam(text):
         )
 
     return score, matches
-    async def send_log(message, score, matches, action):
 
-    channel = bot.get_channel(LOG_CHANNEL_ID)
+
+# =========================
+# DISCORD LOG
+# =========================
+
+async def send_log(
+    message,
+    score,
+    matches,
+    action
+):
+
+    channel = bot.get_channel(
+        LOG_CHANNEL_ID
+    )
 
     if channel is None:
-        print("❌ LOG CHANNEL NOT FOUND")
+
+        print(
+            "❌ LOG CHANNEL NOT FOUND"
+        )
+
         return
 
-    embed = discord.Embed(
-        title="🚨 Crypto Scam Detected",
-        description="A suspicious image was detected.",
-        color=discord.Color.red()
-    )
+    try:
 
-    embed.add_field(
-        name="👤 User",
-        value=f"{message.author.mention} (`{message.author}`)",
-        inline=False
-    )
+        embed = discord.Embed(
+            title="🚨 Crypto Scam Detected",
+            description=(
+                "A suspicious image was detected."
+            ),
+            color=discord.Color.red()
+        )
 
-    embed.add_field(
-        name="📊 Score",
-        value=str(score),
-        inline=True
-    )
+        embed.add_field(
+            name="👤 User",
+            value=(
+                f"{message.author.mention}\n"
+                f"`{message.author}`"
+            ),
+            inline=False
+        )
 
-    embed.add_field(
-        name="🔎 Matches",
-        value=", ".join(matches)[:1024],
-        inline=False
-    )
+        embed.add_field(
+            name="📊 Score",
+            value=str(score),
+            inline=True
+        )
 
-    embed.add_field(
-        name="🛡️ Action",
-        value=action,
-        inline=False
-    )
+        match_text = ", ".join(matches)
 
-    embed.add_field(
-        name="📍 Channel",
-        value=message.channel.mention,
-        inline=False
-    )
+        if not match_text:
+            match_text = "None"
 
-    await channel.send(embed=embed)
+        embed.add_field(
+            name="🔎 Matches",
+            value=match_text[:1024],
+            inline=False
+        )
+
+        embed.add_field(
+            name="🛡️ Action",
+            value=action,
+            inline=False
+        )
+
+        embed.add_field(
+            name="📍 Channel",
+            value=message.channel.mention,
+            inline=False
+        )
+
+        embed.set_footer(
+            text="Crypto Scam Detector"
+        )
+
+        await channel.send(
+            embed=embed
+        )
+
+        print(
+            "📝 Discord log sent."
+        )
+
+    except Exception as error:
+
+        print(
+            f"LOG ERROR: {error}"
+        )
 
 
 # =========================
@@ -249,7 +300,12 @@ async def on_message(message):
                 attachment.content_type or ""
             )
 
-            if not content_type.startswith("image/"):
+            # Only images
+
+            if not content_type.startswith(
+                "image/"
+            ):
+
                 continue
 
             try:
@@ -263,9 +319,13 @@ async def on_message(message):
                     await attachment.read()
                 )
 
+                # OCR
+
                 text = extract_text(
                     image_bytes
                 )
+
+                # Scam score
 
                 score, matches = (
                     detect_scam(text)
@@ -295,7 +355,7 @@ async def on_message(message):
                     "=============================="
                 )
 
-                # Any detected match = suspicious
+                # Any match = suspicious
 
                 if matches:
 
@@ -304,9 +364,13 @@ async def on_message(message):
                         "SCAM DETECTED"
                     )
 
-                    user_id = message.author.id
+                    user_id = (
+                        message.author.id
+                    )
 
-                    # Delete message
+                    # =================
+                    # DELETE MESSAGE
+                    # =================
 
                     try:
 
@@ -322,7 +386,9 @@ async def on_message(message):
                             f"DELETE ERROR: {error}"
                         )
 
-                    # Second offense = BAN
+                    # =================
+                    # SECOND OFFENSE
+                    # =================
 
                     if user_id in flagged_users:
 
@@ -339,11 +405,12 @@ async def on_message(message):
                                 f"🔨 BANNED: "
                                 f"{message.author}"
                             )
+
                             await send_log(
-    message,
-    score,
-    matches,
-    "🔨 BANNED — repeated offense"
+                                message,
+                                score,
+                                matches,
+                                "🔨 BANNED — repeated offense"
                             )
 
                         except Exception as error:
@@ -352,7 +419,9 @@ async def on_message(message):
                                 f"BAN ERROR: {error}"
                             )
 
-                    # First offense = TIMEOUT
+                    # =================
+                    # FIRST OFFENSE
+                    # =================
 
                     else:
 
@@ -378,12 +447,17 @@ async def on_message(message):
                                 f"{TIMEOUT_MINUTES} "
                                 f"minutes"
                             )
-await send_log(
-    message,
-    score,
-    matches,
-    f"⏳ Timeout {TIMEOUT_MINUTES} minutes"
+
+                            await send_log(
+                                message,
+                                score,
+                                matches,
+                                (
+                                    f"⏳ Timeout "
+                                    f"{TIMEOUT_MINUTES} minutes"
+                                )
                             )
+
                         except Exception as error:
 
                             print(
@@ -414,6 +488,8 @@ if not TOKEN:
     )
 
 
+# Start web server
+
 web_thread = threading.Thread(
     target=run_web_server,
     daemon=True
@@ -421,5 +497,7 @@ web_thread = threading.Thread(
 
 web_thread.start()
 
+
+# Start Discord bot
 
 bot.run(TOKEN)
