@@ -19,8 +19,10 @@ import uvicorn
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-SCAM_THRESHOLD = 6
 TIMEOUT_MINUTES = 30
+
+# Prima abatere = timeout
+# A doua abatere = ban
 flagged_users = set()
 
 PORT = int(os.getenv("PORT", "10000"))
@@ -54,10 +56,8 @@ def run_web_server():
 # =========================
 
 intents = discord.Intents.default()
-
 intents.message_content = True
 intents.members = True
-
 
 bot = commands.Bot(
     command_prefix="!",
@@ -70,7 +70,6 @@ bot = commands.Bot(
 # =========================
 
 RULES = {
-
     "free crypto": 4,
     "free bitcoin": 4,
     "free btc": 4,
@@ -107,7 +106,6 @@ RULES = {
     "double your eth": 5,
 
     "send 1 get 2": 5,
-
 }
 
 
@@ -149,9 +147,6 @@ def detect_scam(text):
                 f"{phrase} (+{points})"
             )
 
-
-    # Detect URLs
-
     urls = re.findall(
         r"(https?://[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(com|net|org|xyz|io|co)\b)",
         text
@@ -164,7 +159,6 @@ def detect_scam(text):
         matches.append(
             "external website (+2)"
         )
-
 
     return score, matches
 
@@ -191,13 +185,15 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    print(f"📩 MESSAGE RECEIVED: {message.author} | attachments: {len(message.attachments)}")
+
+    print(
+        f"📩 MESSAGE RECEIVED: "
+        f"{message.author} | "
+        f"attachments: {len(message.attachments)}"
+    )
 
     if message.author.bot:
         return
-
-
-    # Only inspect messages containing attachments
 
     if message.attachments:
 
@@ -207,41 +203,27 @@ async def on_message(message):
                 attachment.content_type or ""
             )
 
-
-            # Only images
-
-            if not content_type.startswith(
-                "image/"
-            ):
-
+            if not content_type.startswith("image/"):
                 continue
-
 
             try:
 
                 print(
-                    f"Scanning image from {message.author}..."
+                    f"Scanning image from "
+                    f"{message.author}..."
                 )
-
 
                 image_bytes = (
                     await attachment.read()
                 )
 
-
-                # OCR
-
                 text = extract_text(
                     image_bytes
                 )
 
-
-                # Scam score
-
                 score, matches = (
                     detect_scam(text)
                 )
-
 
                 print(
                     "=============================="
@@ -267,63 +249,96 @@ async def on_message(message):
                     "=============================="
                 )
 
+                # Any detected match = suspicious
 
-    if matches:
+                if matches:
 
-    print(
-        "🚨 POSSIBLE CRYPTO SCAM DETECTED"
-    )
+                    print(
+                        "🚨 POSSIBLE CRYPTO "
+                        "SCAM DETECTED"
+                    )
 
-    user_id = message.author.id
+                    user_id = message.author.id
 
-    try:
-        await message.delete()
-        print("🗑️ Message deleted.")
+                    # Delete message
 
-    except Exception as error:
-        print(f"DELETE ERROR: {error}")
+                    try:
 
-    if user_id in flagged_users:
+                        await message.delete()
 
-        try:
-            await message.author.ban(
-                reason="Repeated crypto scam image"
-            )
+                        print(
+                            "🗑️ Message deleted."
+                        )
 
-            print(
-                f"🔨 BANNED: {message.author}"
-            )
+                    except Exception as error:
 
-        except Exception as error:
-            print(f"BAN ERROR: {error}")
+                        print(
+                            f"DELETE ERROR: {error}"
+                        )
 
-    else:
+                    # Second offense = BAN
 
-        flagged_users.add(user_id)
+                    if user_id in flagged_users:
 
-        try:
-            await message.author.timeout(
-                timedelta(minutes=TIMEOUT_MINUTES),
-                reason="Crypto scam image"
-            )
+                        try:
 
-            print(
-                f"⏳ TIMEOUT: {message.author}"
-            )
+                            await message.author.ban(
+                                reason=(
+                                    "Repeated crypto "
+                                    "scam image"
+                                )
+                            )
 
-        except Exception as error:
-            print(f"TIMEOUT ERROR: {error}"
-             )
-            
+                            print(
+                                f"🔨 BANNED: "
+                                f"{message.author}"
+                            )
 
+                        except Exception as error:
+
+                            print(
+                                f"BAN ERROR: {error}"
+                            )
+
+                    # First offense = TIMEOUT
+
+                    else:
+
+                        flagged_users.add(
+                            user_id
+                        )
+
+                        try:
+
+                            await message.author.timeout(
+                                timedelta(
+                                    minutes=TIMEOUT_MINUTES
+                                ),
+                                reason=(
+                                    "Crypto scam image"
+                                )
+                            )
+
+                            print(
+                                f"⏳ TIMEOUT: "
+                                f"{message.author} "
+                                f"for "
+                                f"{TIMEOUT_MINUTES} "
+                                f"minutes"
+                            )
+
+                        except Exception as error:
+
+                            print(
+                                f"TIMEOUT ERROR: "
+                                f"{error}"
+                            )
 
             except Exception as error:
 
                 print(
                     f"OCR ERROR: {error}"
                 )
-                
-
 
     await bot.process_commands(
         message
@@ -337,11 +352,10 @@ async def on_message(message):
 if not TOKEN:
 
     raise RuntimeError(
-        "DISCORD_TOKEN environment variable is missing."
+        "DISCORD_TOKEN environment variable "
+        "is missing."
     )
 
-
-# Start web server
 
 web_thread = threading.Thread(
     target=run_web_server,
@@ -350,7 +364,5 @@ web_thread = threading.Thread(
 
 web_thread.start()
 
-
-# Start Discord bot
 
 bot.run(TOKEN)
