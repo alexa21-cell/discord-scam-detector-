@@ -162,6 +162,51 @@ def detect_scam(text):
         )
 
     return score, matches
+    async def send_log(message, score, matches, action):
+
+    channel = bot.get_channel(LOG_CHANNEL_ID)
+
+    if channel is None:
+        print("❌ LOG CHANNEL NOT FOUND")
+        return
+
+    embed = discord.Embed(
+        title="🚨 Crypto Scam Detected",
+        description="A suspicious image was detected.",
+        color=discord.Color.red()
+    )
+
+    embed.add_field(
+        name="👤 User",
+        value=f"{message.author.mention} (`{message.author}`)",
+        inline=False
+    )
+
+    embed.add_field(
+        name="📊 Score",
+        value=str(score),
+        inline=True
+    )
+
+    embed.add_field(
+        name="🔎 Matches",
+        value=", ".join(matches)[:1024],
+        inline=False
+    )
+
+    embed.add_field(
+        name="🛡️ Action",
+        value=action,
+        inline=False
+    )
+
+    embed.add_field(
+        name="📍 Channel",
+        value=message.channel.mention,
+        inline=False
+    )
+
+    await channel.send(embed=embed)
 
 
 # =========================
@@ -294,6 +339,12 @@ async def on_message(message):
                                 f"🔨 BANNED: "
                                 f"{message.author}"
                             )
+                            await send_log(
+    message,
+    score,
+    matches,
+    "🔨 BANNED — repeated offense"
+                            )
 
                         except Exception as error:
 
@@ -327,7 +378,12 @@ async def on_message(message):
                                 f"{TIMEOUT_MINUTES} "
                                 f"minutes"
                             )
-
+await send_log(
+    message,
+    score,
+    matches,
+    f"⏳ Timeout {TIMEOUT_MINUTES} minutes"
+                            )
                         except Exception as error:
 
                             print(
