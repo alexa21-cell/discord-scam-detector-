@@ -1,0 +1,183 @@
+import os
+import re
+from io import BytesIO
+
+import discord
+from discord.ext import commands
+from PIL import Image
+import pytesseract
+
+
+# =========================
+# CONFIG
+# =========================
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+# Scorul minim pentru a considera imaginea suspectă
+SCAM_THRESHOLD = 6
+
+
+# =========================
+# DISCORD
+# =========================
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents
+)
+
+
+# =========================
+# SCAM RULES
+# =========================
+
+RULES = {
+    "free crypto": 4,
+    "free bitcoin": 4,
+    "free btc": 4,
+    "free ethereum": 4,
+    "free eth": 4,
+
+    "crypto giveaway": 4,
+    "btc giveaway": 4,
+    "eth giveaway": 4,
+
+    "cryptocurrency casino": 3,
+    "crypto casino": 3,
+
+    "claim your reward": 3,
+    "claim your bonus": 3,
+    "claim reward": 3,
+
+    "activate code": 2,
+    "promo code": 2,
+    "special promo code": 3,
+
+    "withdrawal successful": 2,
+    "withdrawal of": 2,
+
+    "giving away": 3,
+    "giveaway": 2,
+
+    "connect wallet": 4,
+    "verify wallet": 4,
+    "wallet verification": 4,
+
+    "double your crypto": 5,
+    "double your btc": 5,
+    "double your eth": 5,
+
+    "send 1 get 2": 5,
+}
+
+
+# =========================
+# OCR
+# =========================
+
+def extract_text(image_bytes):
+    image = Image.open(BytesIO(image_bytes))
+    image = image.convert("RGB")
+
+    text = pytesseract.image_to_string(image)
+
+    return text.lower()
+
+
+# =========================
+# SCAM DETECTION
+# =========================
+
+def detect_scam(text):
+    score = 0
+    matches = []
+
+    for phrase, points in RULES.items():
+        if phrase in text:
+            score += points
+            matches.append(
+                f"{phrase} (+{points})"
+            )
+
+    # Detectare linkuri
+    urls = re.findall(
+        r"(https?://[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(com|net|org|xyz|io|co)\b)",
+        text
+    )
+
+    if urls:
+        score += 2
+        matches.append("external website (+2)")
+
+    return score, matches
+
+
+# =========================
+# BOT READY
+# =========================
+
+@bot.event
+async def on_ready():
+    print(f"Bot conectat ca {bot.user}")
+    print("Crypto Scam Detector este online.")
+
+
+# =========================
+# IMAGE SCANNER
+# =========================
+
+@bot.event
+async def on_message(message):
+
+    if message.author.bot:
+        return
+
+    if message.attachments:
+
+        for attachment in message.attachments:
+
+            content_type = attachment.content_type or ""
+
+            if not content_type.startswith("image/"):
+                continue
+
+            try:
+                image_bytes = await attachment.read()
+
+                text = extract_text(image_bytes)
+
+                score, matches = detect_scam(text)
+
+                print("--------------------------------")
+                print(f"User: {message.author}")
+                print(f"Score: {score}")
+                print(f"Detected: {matches}")
+                print(f"OCR: {text[:500]}")
+                print("--------------------------------")
+
+                if score >= SCAM_THRESHOLD:
+
+                    print("🚨 POSIBIL CRYPTO SCAM DETECTAT")
+
+            except Exception as error:
+
+                print(f"Eroare OCR: {error}")
+
+    await bot.process_commands(message)
+
+
+# =========================
+# START BOT
+# =========================
+
+if not TOKEN:
+    raise RuntimeError(
+        "Lipsește variabila DISCORD_TOKEN."
+    )
+
+bot.run(TOKEN)
