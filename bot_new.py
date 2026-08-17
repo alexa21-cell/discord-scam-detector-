@@ -1,6 +1,7 @@
 import os
 import re
 import threading
+from datetime import timedelta
 from io import BytesIO
 
 import discord
@@ -19,6 +20,8 @@ import uvicorn
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 SCAM_THRESHOLD = 6
+TIMEOUT_MINUTES = 30
+flagged_users = set()
 
 PORT = int(os.getenv("PORT", "10000"))
 
@@ -265,10 +268,51 @@ async def on_message(message):
                 )
 
 
-                if score >= SCAM_THRESHOLD:
+                if matches:
 
-                    print(
-                        "🚨 POSSIBLE CRYPTO SCAM DETECTED"
+    print(
+        "🚨 POSSIBLE CRYPTO SCAM DETECTED"
+    )
+
+    user_id = message.author.id
+
+    try:
+        await message.delete()
+        print("🗑️ Message deleted.")
+
+    except Exception as error:
+        print(f"DELETE ERROR: {error}")
+
+    if user_id in flagged_users:
+
+        try:
+            await message.author.ban(
+                reason="Repeated crypto scam image"
+            )
+
+            print(
+                f"🔨 BANNED: {message.author}"
+            )
+
+        except Exception as error:
+            print(f"BAN ERROR: {error}")
+
+    else:
+
+        flagged_users.add(user_id)
+
+        try:
+            await message.author.timeout(
+                timedelta(minutes=TIMEOUT_MINUTES),
+                reason="Crypto scam image"
+            )
+
+            print(
+                f"⏳ TIMEOUT: {message.author}"
+            )
+
+        except Exception as error:
+            print(f"TIMEOUT ERROR: {error}")
                     )
 
 
