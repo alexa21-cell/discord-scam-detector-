@@ -188,6 +188,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
+    print(f"📩 MESSAGE RECEIVED: {message.author} | attachments: {len(message.attachments)}")
 
     if message.author.bot:
         return
