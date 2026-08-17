@@ -20,12 +20,9 @@ import uvicorn
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 TIMEOUT_MINUTES = 30
+LOG_CHANNEL_ID = 1538889265688223864
 
-# ID-ul canalului unde vrei logurile
-LOG_CHANNEL_ID = 123456789012345678
 
-# Prima abatere = timeout
-# A doua abatere = ban
 flagged_users = set()
 
 PORT = int(os.getenv("PORT", "10000"))
