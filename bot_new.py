@@ -20,6 +20,7 @@ import uvicorn
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 TIMEOUT_MINUTES = 30
+LOG_CHANMEL_ID = 1538889265688223864
 
 # Prima abatere = timeout
 # A doua abatere = ban
