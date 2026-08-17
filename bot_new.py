@@ -313,7 +313,7 @@ async def on_message(message):
 
         except Exception as error:
             print(f"TIMEOUT ERROR: {error}")
-                    )
+                 )
 
 
             except Exception as error:
@@ -321,6 +321,7 @@ async def on_message(message):
                 print(
                     f"OCR ERROR: {error}"
                 )
+                
 
 
     await bot.process_commands(
