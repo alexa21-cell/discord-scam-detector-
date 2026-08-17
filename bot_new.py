@@ -268,7 +268,7 @@ async def on_message(message):
                 )
 
 
-                if matches:
+    if matches:
 
     print(
         "🚨 POSSIBLE CRYPTO SCAM DETECTED"
